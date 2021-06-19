@@ -26,19 +26,27 @@ def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type]:
     return dict(zip(origin.__parameters__, get_args(cls)))
 
 
+def resolve(t: Type[Any], mapping: Dict[TypeVar, Type]) -> Type[Any]:
+    if t in mapping:
+        return mapping[t]
+    if get_origin(t) is None:
+        return t
+    resolved_args = [resolve(arg, mapping) for arg in get_args(t)]
+    return get_origin(t)[tuple(resolved_args)]
+
+
 def get_signature(f: Callable) -> Dict[str, Type]:
     if get_origin(f) is not None:
         cls = get_origin(f)
         signature = get_signature(cls.__init__)
-        signature.pop('self')
+        signature.pop('self')  # TODO
         mapping = get_generic_mapping(f)
         for key, value in signature.items():
-            if value in mapping:
-                signature[key] = mapping[value]
+            signature[key] = resolve(value, mapping)
         return signature
     if isinstance(f, type):
         signature = get_signature(f.__init__)
-        signature.pop('self')
+        signature.pop('self')  # TODO
         return signature
     signature = inspect.signature(f)
     return {data.name: data.annotation for data in signature.parameters.values()}

@@ -43,12 +43,17 @@ def test_generics():
         def f(self) -> T:
             return self.value
 
-    class C(A):
-        pass
+    class C(Interface[B[T]]):
+        def __init__(self, value: Interface[T]):
+            self.value = value
+
+        def f(self) -> Interface[T]:
+            return self.value
 
     builder = ContainerBuilder()
     builder.singleton(Interface[int], A, x=1)
     builder.singleton(Interface[str], B[str], value='abacaba')
+    builder.singleton(Interface[Interface[str]], C[str])
     container = builder.build()
     a = container.resolve(Interface[int])
     assert isinstance(a, A)
@@ -56,3 +61,6 @@ def test_generics():
     b = container.resolve(Interface[str])
     assert isinstance(b, B)
     assert b.value == 'abacaba'
+    c = container.resolve(Interface[Interface[str]])
+    assert isinstance(c, C)
+    assert c.value.f() == 'abacaba'
