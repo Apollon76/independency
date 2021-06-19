@@ -1,5 +1,5 @@
 import inspect
-from typing import Union, Type, Any, Callable, Dict
+from typing import Union, Type, Any, Callable, Dict, get_origin, get_args, TypeVar
 
 ObjType = Union[str, Type]
 
@@ -21,7 +21,25 @@ class Dependency:
         self.cls = cls
 
 
+def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type]:
+    origin = get_origin(cls)
+    return dict(zip(origin.__parameters__, get_args(cls)))
+
+
 def get_signature(f: Callable) -> Dict[str, Type]:
+    if get_origin(f) is not None:
+        cls = get_origin(f)
+        signature = get_signature(cls.__init__)
+        signature.pop('self')
+        mapping = get_generic_mapping(f)
+        for key, value in signature.items():
+            if value in mapping:
+                signature[key] = mapping[value]
+        return signature
+    if isinstance(f, type):
+        signature = get_signature(f.__init__)
+        signature.pop('self')
+        return signature
     signature = inspect.signature(f)
     return {data.name: data.annotation for data in signature.parameters.values()}
 
@@ -39,7 +57,8 @@ class Container:
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve = {name: value for name, value in get_signature(current.factory).items() if name not in current.kwargs}
+        deps_to_resolve = {name: value for name, value in get_signature(current.factory).items() if
+                           name not in current.kwargs}
         args = self._resolve_kwargs(current.kwargs)
         for key, d in deps_to_resolve.items():
             args[key] = self.resolve(d)
