@@ -63,7 +63,7 @@ class ContainerBuilder:
         self._registry = {}
 
     def build(self) -> Container:
-        self._check()
+        self._check_resolvable()
         return Container(self._registry)
 
     def singleton(self, cls: ObjType, factory: Callable, **kwargs: Any) -> None:
@@ -78,5 +78,5 @@ class ContainerBuilder:
                 raise ValueError(f'No argument {name} for factory for type {cls}')
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
 
-    def _check(self) -> None:
+    def _check_resolvable(self) -> None:
         ...
