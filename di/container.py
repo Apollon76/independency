@@ -1,5 +1,5 @@
 import inspect
-from typing import Union, Type, Any, Callable, Dict, List
+from typing import Union, Type, Any, Callable, Dict
 
 ObjType = Union[str, Type]
 
