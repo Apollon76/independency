@@ -21,6 +21,11 @@ class Dependency:
         self.cls = cls
 
 
+def get_signature(f: Callable) -> Dict[str, Type]:
+    signature = inspect.signature(f)
+    return {data.name: data.annotation for data in signature.parameters.values()}
+
+
 class Container:
     def __init__(self, registry: Dict[ObjType, Registration]):
         self._registry = registry
@@ -34,22 +39,13 @@ class Container:
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve = self._get_deps(current)
+        deps_to_resolve = {name: value for name, value in get_signature(current.factory).items() if name not in current.kwargs}
         args = self._resolve_kwargs(current.kwargs)
         for key, d in deps_to_resolve.items():
             args[key] = self.resolve(d)
         result = current.factory(**args)
         if current.is_singleton:
             self._resolved[current.cls] = result
-        return result
-
-    def _get_deps(self, r: Registration) -> Dict[str, ObjType]:
-        signature = inspect.signature(r.factory)
-        result = {}
-        for data in signature.parameters.values():
-            if data.name in r.kwargs:
-                continue
-            result[data.name] = data.annotation
         return result
 
     def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -76,7 +72,10 @@ class ContainerBuilder:
     def register(self, cls: ObjType, factory: Callable, is_singleton: bool, **kwargs: Any) -> None:
         if cls in self._registry:
             raise ContainerError(f'Type {cls} is already registered')
-        # TODO: check kwargs for factory
+        signature = get_signature(factory)
+        for name in kwargs:
+            if name not in signature:
+                raise ValueError(f'No argument {name} for factory for type {cls}')
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
 
     def _check(self) -> None:
