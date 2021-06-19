@@ -1,4 +1,4 @@
-from di.container import ContainerBuilder
+from di.container import ContainerBuilder, Dependency as Dep
 
 
 def test_container():
@@ -9,9 +9,10 @@ def test_container():
 
     builder = ContainerBuilder()
     builder.singleton(int, lambda: 1)
-    builder.singleton(str, lambda: 'abacaba')
-    builder.singleton(A, A)
+    builder.singleton('y', lambda: 'abacaba')
+    builder.singleton(A, A, y=Dep('y'))
     container = builder.build()
     inst = container.resolve(A)
-    print(inst.x)
-    print(inst.y)
+    assert isinstance(inst, A)
+    assert inst.x == 1
+    assert inst.y == 'abacaba'

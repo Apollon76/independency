@@ -16,6 +16,11 @@ class Registration:
         self.kwargs = kwargs
 
 
+class Dependency:
+    def __init__(self, cls: ObjType):
+        self.cls = cls
+
+
 class Container:
     def __init__(self, registry: Dict[ObjType, Registration]):
         self._registry = registry
@@ -27,10 +32,10 @@ class Container:
         try:
             current = self._registry[cls]
         except KeyError as e:
-            raise ContainerError from e
+            raise ContainerError(f'No dependency of type {cls}') from e
 
         deps_to_resolve = self._get_deps(current)
-        args = current.kwargs
+        args = self._resolve_kwargs(current.kwargs)
         for key, d in deps_to_resolve.items():
             args[key] = self.resolve(d)
         result = current.factory(**args)
@@ -45,6 +50,15 @@ class Container:
             if data.name in r.kwargs:
                 continue
             result[data.name] = data.annotation
+        return result
+
+    def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
+        result = {}
+        for key, value in kwargs.items():
+            if not isinstance(value, Dependency):
+                result[key] = value
+                continue
+            result[key] = self.resolve(value.cls)
         return result
 
 
