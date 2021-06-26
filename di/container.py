@@ -63,6 +63,8 @@ class Container:
     def resolve(self, cls: ObjType) -> Any:
         if cls in self._resolved:
             return self._resolved[cls]
+
+        cls = self._get_from_localns(cls)
         try:
             current = self._registry[cls]
         except KeyError as e:
@@ -80,6 +82,11 @@ class Container:
         if current.is_singleton:
             self._resolved[current.cls] = result
         return result  # noqa: R504
+
+    def _get_from_localns(self, cls: ObjType):
+        if isinstance(cls, type):
+            return self._localns.get(cls.__name__, cls)
+        return self._localns.get(cls, cls)
 
     def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         result = {}

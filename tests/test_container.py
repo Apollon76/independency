@@ -287,7 +287,45 @@ def test_forward_references_can_be_registered_as_strings():
     assert instance.kek.x == 1
 
 
-def test_register_after_building():
+def test_can_use_dependency_with_forward_ref():
+    class Kek:
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+
+    class Lol:
+        def __init__(self, x: int):
+            self.x = x
+
+    builder = ContainerBuilder()
+
+    builder.singleton("Lol", lambda: Lol(1))
+    builder.singleton(Kek, Kek, kek=Dep("Lol"))
+
+    container = builder.build()
+    instance = container.resolve(Kek)
+    assert instance.kek.x == 1
+
+
+def test_can_use_dependency_with_forward_ref_as_class():
+    class Kek:
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+
+    class Lol:
+        def __init__(self, x: int):
+            self.x = x
+
+    builder = ContainerBuilder()
+
+    builder.singleton("Lol", lambda: Lol(1))
+    builder.singleton(Kek, Kek, kek=Dep(Lol))
+
+    container = builder.build()
+    instance = container.resolve(Kek)
+    assert instance.kek.x == 1
+
+
+def test_register_after_building_does_not_affect_on_container():
     class A:
         pass
 
