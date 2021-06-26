@@ -290,6 +290,7 @@ def test_forward_references_can_be_registered_as_strings():
 def test_register_after_building():
     class A:
         pass
+
     class B:
         pass
 
