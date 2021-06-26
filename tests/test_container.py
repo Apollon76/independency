@@ -1,7 +1,10 @@
 import abc
-from typing import TypeVar, Generic
+from typing import Generic, TypeVar
 
-from di.container import ContainerBuilder, Dependency as Dep
+import pytest
+
+from di.container import ContainerBuilder, ContainerError
+from di.container import Dependency as Dep
 
 
 def test_container():
@@ -21,8 +24,8 @@ def test_container():
     assert inst.y == 'abacaba'
 
 
-def test_generics():
-    T = TypeVar('T')
+def test_generics():  # noqa: C901
+    T = TypeVar('T')  # noqa: N806
 
     class Interface(abc.ABC, Generic[T]):
         @abc.abstractmethod
@@ -72,3 +75,213 @@ def test_generics():
     d = container.resolve(D[str])
     assert isinstance(d, D)
     assert d.value.f() == 'abacaba'
+
+
+def test_missing_dependencies_raise_exception():
+    class A:
+        pass
+
+    class B:
+        def __init__(self, a: A):
+            self._a = a
+
+    builder = ContainerBuilder()
+    builder.singleton(B, B)
+
+    container = builder.build()
+    with pytest.raises(ContainerError):
+        container.resolve(B)
+
+
+def test_resolves_instances():
+    class A:
+        pass
+
+    class B:
+        pass
+
+    builder = ContainerBuilder()
+    builder.register(A, A, is_singleton=False)
+    builder.singleton(B, B)
+    container = builder.build()
+
+    assert container.resolve(A) != container.resolve(A)
+    assert container.resolve(B) is container.resolve(B)
+
+
+def test_registering_an_instance_as_factory_is_exception():
+    class A:
+        pass
+
+    builder = ContainerBuilder()
+    a = A()
+
+    with pytest.raises(ContainerError):
+        builder.register(A, a, is_singleton=True)  # type: ignore
+
+
+def test_can_use_a_string_key():
+    builder = ContainerBuilder()
+    builder.register("foo", lambda: 1, is_singleton=True)
+
+    container = builder.build()
+    assert container.resolve("foo") == 1
+
+
+def test_resolution():
+    T = TypeVar('T')  # noqa: N806
+
+    class A(Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+    class B(Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+    class C(Generic[T]):
+        def __init__(self, value: A[B[T]]):
+            self.value = value
+
+    builder = ContainerBuilder()
+    builder.singleton(B[int], B[int], value=1)
+    builder.singleton(A[B[int]], A[B[int]])
+    builder.singleton(C[int], C[int])
+
+    inst = builder.build().resolve(C[int])
+    assert isinstance(inst, C)
+    assert inst.value.value.value == 1
+
+
+def test_resolution_by_function():
+    T = TypeVar('T')  # noqa: N806
+
+    class A(Generic[T]):
+        def __init__(self, x: int, y: T):
+            self.x = x
+            self.y = y
+
+    class B(Generic[T]):
+        def __init__(self, value: A[T]):
+            self.value = value
+
+    def create_b(value: A[int]) -> B[str]:
+        return B[str](A[str](x=value.x, y=str(value.y)))
+
+    builder = ContainerBuilder()
+    builder.singleton(A[int], A[int], x=1, y=2)
+    builder.singleton(B[str], create_b)
+
+    inst = builder.build().resolve(B[str])
+    assert inst.value.x == 1
+    assert inst.value.y == '2'
+
+
+def test_resolution_with_error():
+    T = TypeVar('T')  # noqa: N806
+
+    class B(Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+    class A(Generic[T]):
+        def __init__(self, value: B[T]):
+            self.value = value
+
+    builder = ContainerBuilder()
+    builder.singleton(B[str], B[str], value='some value')
+    builder.singleton(A[int], A[int])
+
+    container = builder.build()
+    with pytest.raises(ContainerError):
+        container.resolve(A[int])
+
+
+def test_different_generics_resolution():
+    T = TypeVar('T')  # noqa: N806
+
+    class B(Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+    class A(Generic[T]):
+        def __init__(self, value: B[T]):
+            self.value = value
+
+    builder = ContainerBuilder()
+    builder.singleton(B[int], B[int], value=1)
+    builder.singleton(A[int], A[int])
+    builder.singleton(B[str], B[str], value='str')
+    builder.singleton(A[str], A[str])
+
+    container = builder.build()
+    inst_int = container.resolve(A[int])
+    inst_str = container.resolve(A[str])
+    assert inst_int.value.value == 1
+    assert inst_str.value.value == 'str'
+
+
+def test_register_generic_type_without_params():
+    T = TypeVar('T')  # noqa: N806
+
+    class B(Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+    builder = ContainerBuilder()
+
+    with pytest.raises(ValueError):
+        builder.singleton(B, B[int])
+
+
+def test_can_resolve_objects_with_forward_references():
+    class Kek:
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+
+    class Lol:
+        def __init__(self, x: int):
+            self.x = x
+
+    builder = ContainerBuilder()
+
+    builder.singleton(Lol, lambda: Lol(1))
+    builder.singleton(Kek, Kek)
+
+    container = builder.build()
+    instance = container.resolve(Kek)
+    assert instance.kek.x == 1
+
+
+def test_forward_references_must_be_registered_before_their_clients():
+    class Kek:
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+
+    class Lol:
+        def __init__(self, x: int):
+            self.x = x
+
+    builder = ContainerBuilder()
+
+    with pytest.raises(ContainerError):
+        builder.singleton(Kek, Kek)
+
+
+def test_forward_references_can_be_registered_as_strings():
+    class Kek:
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+
+    class Lol:
+        def __init__(self, x: int):
+            self.x = x
+
+    builder = ContainerBuilder()
+
+    builder.singleton("Lol", lambda: Lol(1))
+    builder.singleton(Kek, Kek)
+
+    container = builder.build()
+    instance = container.resolve(Kek)
+    assert instance.kek.x == 1
