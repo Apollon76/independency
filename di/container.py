@@ -98,7 +98,7 @@ class ContainerBuilder:
 
     def build(self) -> Container:
         self._check_resolvable()
-        return Container(self._registry, self._localns)
+        return Container(self._registry.copy(), self._localns.copy())
 
     def singleton(self, cls: ObjType, factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)

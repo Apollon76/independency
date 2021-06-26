@@ -285,3 +285,21 @@ def test_forward_references_can_be_registered_as_strings():
     container = builder.build()
     instance = container.resolve(Kek)
     assert instance.kek.x == 1
+
+
+def test_register_after_building():
+    class A:
+        pass
+    class B:
+        pass
+
+    builder = ContainerBuilder()
+    builder.singleton(A, A)
+    container = builder.build()
+
+    with pytest.raises(ContainerError):
+        container.resolve(B)
+
+    builder.singleton(B, B)
+    with pytest.raises(ContainerError):
+        container.resolve(B)
