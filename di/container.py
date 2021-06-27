@@ -30,7 +30,7 @@ def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type[_T]]:
     return dict(zip(origin.__parameters__, get_args(cls)))
 
 
-def resolve(t: Type[_T], mapping: Dict[ObjType, Type[Any]]) -> Type[_T]:
+def resolve(t: Type[_T], mapping: Dict[Any, Type[Any]]) -> Type[_T]:
     if t in mapping:
         return mapping[t]
     if get_origin(t) is None:
@@ -50,7 +50,7 @@ def get_signature(f: Callable, localns: Dict[str, Any]) -> Dict[str, Type]:
     if isinstance(f, type):
         return get_signature(f.__init__, localns)
     if not callable(f):
-        raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as factory')
+        raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
@@ -86,6 +86,8 @@ class Container:
     def _get_from_localns(self, cls: ObjType):
         if isinstance(cls, type):
             return self._localns.get(cls.__name__, cls)
+        if isinstance(cls, ForwardRef):
+            return self._localns.get(cls.__forward_arg__, cls)
         return self._localns.get(cls, cls)
 
     def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,8 +126,6 @@ class ContainerBuilder:
                 raise ValueError(f'No argument {name} for factory for type {cls}')
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
         self._update_localns(cls)
-        if isinstance(cls, str):
-            self.register(ForwardRef(cls), factory, is_singleton, **kwargs)
 
     def _check_resolvable(self) -> None:
         ...
