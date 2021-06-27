@@ -12,6 +12,7 @@ pytest = "^6.2.4"
 black = "^19.3b0"
 flake8-awesome = "<1.3"
 mypy = "^0.812"
+pylint = "*"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
