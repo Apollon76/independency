@@ -1,3 +1,4 @@
+import dataclasses
 from typing import Any, Callable, Dict, ForwardRef, Type, TypeVar, Union, get_args, get_origin, get_type_hints
 
 _T = TypeVar('_T')
@@ -8,14 +9,12 @@ class ContainerError(Exception):
     pass
 
 
+@dataclasses.dataclass
 class Registration:
-    def __init__(
-        self, cls: ObjType[_T], factory: Callable[..., Any], is_singleton: bool, kwargs: Dict[str, Any],
-    ):
-        self.cls = cls
-        self.factory = factory
-        self.is_singleton = is_singleton
-        self.kwargs = kwargs
+    cls: ObjType[Any]
+    factory: Callable[..., Any]
+    is_singleton: bool
+    kwargs: Dict[str, Any]
 
 
 class Dependency:
