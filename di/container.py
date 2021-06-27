@@ -30,37 +30,37 @@ def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type[_T]]:
     return dict(zip(origin.__parameters__, get_args(cls)))
 
 
-def resolve(t: Type[_T], mapping: Dict[Any, Type[Any]]) -> Type[_T]:
+def resolve(t: Type[_T], mapping: Dict[Any, Type[_T]]) -> Type[_T]:
     if t in mapping:
         return mapping[t]
     if get_origin(t) is None:
         return t
     resolved_args = [resolve(arg, mapping) for arg in get_args(t)]
-    return get_origin(t)[tuple(resolved_args)]
+    return get_origin(t)[tuple(resolved_args)]  # type: ignore
 
 
-def get_signature(f: Callable, localns: Dict[str, Any]) -> Dict[str, Type]:
+def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, Type[Any]]:
     if get_origin(f) is not None:
         cls = get_origin(f)
-        signature = get_signature(cls.__init__, localns=localns)
-        mapping = get_generic_mapping(f)
+        signature = get_signature(cls.__init__, localns=localns)  # type: ignore
+        mapping = get_generic_mapping(f)  # type: ignore
         for key, value in signature.items():
             signature[key] = resolve(value, mapping)
         return signature
     if isinstance(f, type):
-        return get_signature(f.__init__, localns)
+        return get_signature(f.__init__, localns)  # type: ignore
     if not callable(f):
         raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
 class Container:
-    def __init__(self, registry: Dict[ObjType, Registration], localns: Dict[str, Any]):
+    def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
         self._localns = localns
-        self._resolved = {}
+        self._resolved: Dict[ObjType[Any], Any] = {}
 
-    def resolve(self, cls: ObjType) -> Any:
+    def resolve(self, cls: ObjType[Any]) -> Any:
         if cls in self._resolved:
             return self._resolved[cls]
 
@@ -83,7 +83,7 @@ class Container:
             self._resolved[current.cls] = result
         return result  # noqa: R504
 
-    def _get_from_localns(self, cls: ObjType):
+    def _get_from_localns(self, cls: ObjType[Any]) -> Any:
         if isinstance(cls, type):
             return self._localns.get(cls.__name__, cls)
         if isinstance(cls, ForwardRef):
@@ -102,17 +102,17 @@ class Container:
 
 class ContainerBuilder:
     def __init__(self) -> None:
-        self._registry = {}
+        self._registry: Dict[ObjType[Any], Registration] = {}
         self._localns: Dict[str, Any] = {}
 
     def build(self) -> Container:
         self._check_resolvable()
         return Container(self._registry.copy(), self._localns.copy())
 
-    def singleton(self, cls: ObjType, factory: Callable[..., Any], **kwargs: Any) -> None:
+    def singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)
 
-    def register(self, cls: ObjType, factory: Callable[..., Any], is_singleton: bool, **kwargs: Any) -> None:
+    def register(self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any) -> None:
         if generic_params := getattr(cls, '__parameters__', None):
             raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
         if cls in self._registry:
@@ -130,7 +130,7 @@ class ContainerBuilder:
     def _check_resolvable(self) -> None:
         ...
 
-    def _update_localns(self, cls: ObjType):
+    def _update_localns(self, cls: ObjType[Any]) -> None:
         if isinstance(cls, type):
             self._localns[cls.__name__] = cls
         else:
