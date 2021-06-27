@@ -1,3 +1,5 @@
+.PHONY : venv black flake9 mypy pylint lint pretty tests
+
 VENV ?= .venv
 PYTHON ?= python3.9
 TESTS ?= tests
@@ -28,3 +30,6 @@ lint: black flake8 mypy pylint
 pretty:
 	$(VENV)/bin/isort $(ALL)
 	$(VENV)/bin/black --skip-string-normalization $(ALL)
+
+tests:
+	$(VENV)/bin/pytest $(TESTS)

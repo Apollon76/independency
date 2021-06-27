@@ -1,5 +1,5 @@
 import dataclasses
-from typing import Any, Callable, Dict, ForwardRef, Type, TypeVar, Union, get_args, get_origin, get_type_hints
+from typing import Any, Callable, Dict, ForwardRef, Type, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
 _T = TypeVar('_T')
 ObjType = Union[str, Type[_T]]
@@ -17,9 +17,9 @@ class Registration:
     kwargs: Dict[str, Any]
 
 
+@dataclasses.dataclass
 class Dependency:
-    def __init__(self, cls: ObjType[_T]):
-        self.cls = cls
+    cls: ObjType[Any]
 
 
 def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type[_T]]:
@@ -29,9 +29,9 @@ def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type[_T]]:
     return dict(zip(origin.__parameters__, get_args(cls)))
 
 
-def resolve(t: Type[_T], mapping: Dict[Any, Type[_T]]) -> Type[_T]:
+def resolve(t: Type[_T], mapping: Dict[Any, Type[Any]]) -> Type[_T]:
     if t in mapping:
-        return mapping[t]
+        return cast(Type[_T], mapping[t])
     if get_origin(t) is None:
         return t
     resolved_args = [resolve(arg, mapping) for arg in get_args(t)]
@@ -53,7 +53,7 @@ def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, T
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
-class Container:
+class Container:  # pylint: disable=R0903
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
         self._localns = localns
@@ -119,14 +119,14 @@ class ContainerBuilder:
         try:
             signature = get_signature(factory, self._localns)
         except NameError as exc:
-            raise ContainerError(*exc.args)
+            raise ContainerError(*exc.args) from exc
         for name in kwargs:
             if name not in signature:
                 raise ValueError(f'No argument {name} for factory for type {cls}')
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
         self._update_localns(cls)
 
-    def _check_resolvable(self) -> None:
+    def _check_resolvable(self) -> None:  # pylint: disable=R0201
         ...
 
     def _update_localns(self, cls: ObjType[Any]) -> None:
