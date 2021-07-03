@@ -19,7 +19,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install dependencies
-      run: make init
+      run: make venv
     - name: Lint
       run: make lint
     - name: run tests
