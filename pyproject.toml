@@ -1,8 +1,8 @@
 [tool.poetry]
-name = "di"
+name = "independency"
 version = "0.1.0"
 description = ""
-authors = ["apollon <Apollon76@yandex.ru>"]
+authors = ["apollon <Apollon76@yandex.ru>", "ashibaev <ashibaev98@yandex.ru>"]
 
 [tool.poetry.dependencies]
 python = "^3.8"

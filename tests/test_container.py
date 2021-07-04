@@ -3,8 +3,8 @@ from typing import Generic, TypeVar
 
 import pytest
 
-from di.container import ContainerBuilder, ContainerError
-from di.container import Dependency as Dep
+from independency.container import ContainerBuilder, ContainerError
+from independency.container import Dependency as Dep
 
 
 def test_container():
