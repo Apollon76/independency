@@ -3,7 +3,7 @@
 VENV ?= .venv
 PYTHON ?= python3.9
 TESTS ?= tests
-CODE ?= di
+CODE ?= independency
 ALL = $(CODE) $(TESTS)
 JOBS ?= 4
 
