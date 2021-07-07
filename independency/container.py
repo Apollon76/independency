@@ -66,6 +66,14 @@ def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, T
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
+def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
+    if isinstance(cls, type):
+        return localns.get(cls.__name__, cls)
+    if isinstance(cls, ForwardRef):
+        return localns.get(cls.__forward_arg__, cls)
+    return localns.get(cls, cls)
+
+
 class Container:  # pylint: disable=R0903
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
@@ -73,10 +81,10 @@ class Container:  # pylint: disable=R0903
         self._resolved: Dict[ObjType[Any], Any] = {}
 
     def resolve(self, cls: ObjType[Any]) -> Any:
+        cls = get_from_localns(cls, self._localns)
         if cls in self._resolved:
             return self._resolved[cls]
 
-        cls = self._get_from_localns(cls)
         try:
             current = self._registry[cls]
         except KeyError as e:
@@ -94,13 +102,6 @@ class Container:  # pylint: disable=R0903
         if current.is_singleton:
             self._resolved[current.cls] = result
         return result  # noqa: R504
-
-    def _get_from_localns(self, cls: ObjType[Any]) -> Any:
-        if isinstance(cls, type):
-            return self._localns.get(cls.__name__, cls)
-        if isinstance(cls, ForwardRef):
-            return self._localns.get(cls.__forward_arg__, cls)
-        return self._localns.get(cls, cls)
 
     def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
         result = {}
@@ -145,7 +146,7 @@ class ContainerBuilder:
             self._check_resolution(cls, resolved, set())
 
     def _check_resolution(self, cls: ObjType[Any], resolved: Set[ObjType[Any]], resolving: Set[ObjType[Any]]) -> None:
-        cls = self._get_from_localns(cls)
+        cls = get_from_localns(cls, self._localns)
         if cls in resolved:
             return
         if cls in resolving:
@@ -171,15 +172,11 @@ class ContainerBuilder:
         resolving.remove(cls)
         resolved.add(cls)
 
-    def _get_from_localns(self, cls: ObjType[Any]) -> Any:
-        if isinstance(cls, type):
-            return self._localns.get(cls.__name__, cls)
-        if isinstance(cls, ForwardRef):
-            return self._localns.get(cls.__forward_arg__, cls)
-        return self._localns.get(cls, cls)
-
     def _update_localns(self, cls: ObjType[Any]) -> None:
         if isinstance(cls, type):
             self._localns[cls.__name__] = cls
-        else:
-            self._localns[cls] = cls
+            return
+        if isinstance(cls, ForwardRef):
+            self._localns[cls.__forward_arg__] = cls
+            return
+        self._localns[cls] = cls
