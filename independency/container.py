@@ -74,6 +74,24 @@ def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
     return localns.get(cls, cls)
 
 
+def get_deps(reg: Registration, localns: Dict[str, Any]) -> Dict[str, ObjType[Any]]:
+    result: Dict[str, ObjType[Any]] = {
+        name: value for name, value in get_signature(reg.factory, localns).items() if name not in reg.kwargs
+    }
+    for key, value in reg.kwargs.items():
+        if isinstance(value, Dependency):
+            result[key] = value.cls
+    return result
+
+
+def _resolve_constants(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    result = {}
+    for key, value in kwargs.items():
+        if not isinstance(value, Dependency):
+            result[key] = value
+    return result
+
+
 class Container:  # pylint: disable=R0903
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
@@ -90,27 +108,14 @@ class Container:  # pylint: disable=R0903
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve = {
-            name: value
-            for name, value in get_signature(current.factory, self._localns).items()
-            if name not in current.kwargs
-        }
-        args = self._resolve_kwargs(current.kwargs)
+        args = _resolve_constants(current.kwargs)
+        deps_to_resolve = get_deps(current, self._localns)
         for key, d in deps_to_resolve.items():
             args[key] = self.resolve(d)
         result = current.factory(**args)
         if current.is_singleton:
             self._resolved[current.cls] = result
         return result  # noqa: R504
-
-    def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        result = {}
-        for key, value in kwargs.items():
-            if not isinstance(value, Dependency):
-                result[key] = value
-                continue
-            result[key] = self.resolve(value.cls)
-        return result
 
 
 class ContainerBuilder:
@@ -158,15 +163,7 @@ class ContainerBuilder:
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve: Dict[str, ObjType[Any]] = {
-            name: value
-            for name, value in get_signature(current.factory, self._localns).items()
-            if name not in current.kwargs
-        }
-        for key, value in current.kwargs.items():
-            if not isinstance(value, Dependency):
-                continue
-            deps_to_resolve[key] = value.cls
+        deps_to_resolve = get_deps(current, localns=self._localns)
         for value in deps_to_resolve.values():
             self._check_resolution(value, resolved=resolved, resolving=resolving)
         resolving.remove(cls)
