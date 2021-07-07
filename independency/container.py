@@ -175,8 +175,5 @@ class ContainerBuilder:
     def _update_localns(self, cls: ObjType[Any]) -> None:
         if isinstance(cls, type):
             self._localns[cls.__name__] = cls
-            return
-        if isinstance(cls, ForwardRef):
-            self._localns[cls.__forward_arg__] = cls
-            return
-        self._localns[cls] = cls
+        else:
+            self._localns[cls] = cls
