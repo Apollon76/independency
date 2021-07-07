@@ -1,5 +1,18 @@
 import dataclasses
-from typing import Any, Callable, Dict, ForwardRef, Type, TypeVar, Union, cast, get_args, get_origin, get_type_hints
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    ForwardRef,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 _T = TypeVar('_T')
 ObjType = Union[str, Type[_T]]
@@ -127,7 +140,43 @@ class ContainerBuilder:
         self._update_localns(cls)
 
     def _check_resolvable(self) -> None:  # pylint: disable=R0201
-        ...
+        resolved: Set[ObjType[Any]] = set()
+        for cls in self._registry:
+            self._check_resolution(cls, resolved, set())
+
+    def _check_resolution(self, cls: ObjType[Any], resolved: Set[ObjType[Any]], resolving: Set[ObjType[Any]]) -> None:
+        cls = self._get_from_localns(cls)
+        if cls in resolved:
+            return
+        if cls in resolving:
+            raise ContainerError(f'Cycle dependencies for type {cls}')
+        resolving.add(cls)
+
+        try:
+            current = self._registry[cls]
+        except KeyError as e:
+            raise ContainerError(f'No dependency of type {cls}') from e
+
+        deps_to_resolve: Dict[str, ObjType[Any]] = {
+            name: value
+            for name, value in get_signature(current.factory, self._localns).items()
+            if name not in current.kwargs
+        }
+        for key, value in current.kwargs.items():
+            if not isinstance(value, Dependency):
+                continue
+            deps_to_resolve[key] = value.cls
+        for value in deps_to_resolve.values():
+            self._check_resolution(value, resolved=resolved, resolving=resolving)
+        resolving.remove(cls)
+        resolved.add(cls)
+
+    def _get_from_localns(self, cls: ObjType[Any]) -> Any:
+        if isinstance(cls, type):
+            return self._localns.get(cls.__name__, cls)
+        if isinstance(cls, ForwardRef):
+            return self._localns.get(cls.__forward_arg__, cls)
+        return self._localns.get(cls, cls)
 
     def _update_localns(self, cls: ObjType[Any]) -> None:
         if isinstance(cls, type):

@@ -88,9 +88,8 @@ def test_missing_dependencies_raise_exception():
     builder = ContainerBuilder()
     builder.singleton(B, B)
 
-    container = builder.build()
     with pytest.raises(ContainerError):
-        container.resolve(B)
+        builder.build()
 
 
 def test_resolves_instances():
@@ -192,9 +191,8 @@ def test_resolution_with_error():
     builder.singleton(B[str], B[str], value='some value')
     builder.singleton(A[int], A[int])
 
-    container = builder.build()
     with pytest.raises(ContainerError):
-        container.resolve(A[int])
+        builder.build()
 
 
 def test_different_generics_resolution():
