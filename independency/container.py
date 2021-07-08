@@ -1,9 +1,11 @@
 import dataclasses
+import inspect
 from typing import (
     Any,
     Callable,
     Dict,
     ForwardRef,
+    List,
     Set,
     Type,
     TypeVar,
@@ -64,6 +66,17 @@ def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, T
     if not callable(f):
         raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
+
+
+def get_arg_names(f: Callable[..., Any]) -> List[str]:
+    if get_origin(f) is not None:
+        cls = get_origin(f)
+        return get_arg_names(cls.__init__)  # type: ignore
+    if isinstance(f, type):
+        return get_arg_names(f.__init__)  # type: ignore
+    if not callable(f):
+        raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
+    return inspect.getfullargspec(f).args
 
 
 def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
@@ -135,10 +148,7 @@ class ContainerBuilder:
             raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
         if cls in self._registry:
             raise ContainerError(f'Type {cls} is already registered')
-        try:
-            signature = get_signature(factory, self._localns)
-        except NameError as exc:
-            raise ContainerError(*exc.args) from exc
+        signature = get_arg_names(factory)
         for name in kwargs:
             if name not in signature:
                 raise ValueError(f'No argument {name} for factory for type {cls}')

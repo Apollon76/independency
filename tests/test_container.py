@@ -251,21 +251,6 @@ def test_can_resolve_objects_with_forward_references():
     assert instance.kek.x == 1
 
 
-def test_forward_references_must_be_registered_before_their_clients():
-    class Kek:
-        def __init__(self, kek: 'Lol'):
-            self.kek = kek
-
-    class Lol:
-        def __init__(self, x: int):
-            self.x = x
-
-    builder = ContainerBuilder()
-
-    with pytest.raises(ContainerError):
-        builder.singleton(Kek, Kek)
-
-
 def test_forward_references_can_be_registered_as_strings():
     class Kek:
         def __init__(self, kek: 'Lol'):
@@ -340,3 +325,19 @@ def test_register_after_building_does_not_affect_on_container():
     builder.singleton(B, B)
     with pytest.raises(ContainerError):
         container.resolve(B)
+
+
+def test_cyclic_dependencies():
+    class A:
+        def __init__(self, b: 'B'):
+            self.b = b
+
+    class B:
+        def __init__(self, a: A):
+            self.a = a
+
+    builder = ContainerBuilder()
+    builder.register(A, A, is_singleton=False)
+    builder.register(B, B, is_singleton=False)
+    with pytest.raises(ContainerError):
+        builder.build()
