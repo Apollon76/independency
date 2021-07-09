@@ -1,5 +1,20 @@
 import dataclasses
-from typing import Any, Callable, Dict, ForwardRef, Type, TypeVar, Union, cast, get_args, get_origin, get_type_hints
+import inspect
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    ForwardRef,
+    List,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+    cast,
+    get_args,
+    get_origin,
+    get_type_hints,
+)
 
 _T = TypeVar('_T')
 ObjType = Union[str, Type[_T]]
@@ -53,6 +68,43 @@ def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, T
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
+def get_arg_names(f: Callable[..., Any]) -> List[str]:
+    if get_origin(f) is not None:
+        cls = get_origin(f)
+        return get_arg_names(cls.__init__)  # type: ignore
+    if isinstance(f, type):
+        return get_arg_names(f.__init__)  # type: ignore
+    if not callable(f):
+        raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
+    return inspect.getfullargspec(f).args
+
+
+def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
+    if isinstance(cls, type):
+        return localns.get(cls.__name__, cls)
+    if isinstance(cls, ForwardRef):
+        return localns.get(cls.__forward_arg__, cls)
+    return localns.get(cls, cls)
+
+
+def get_deps(reg: Registration, localns: Dict[str, Any]) -> Dict[str, ObjType[Any]]:
+    result: Dict[str, ObjType[Any]] = {
+        name: value for name, value in get_signature(reg.factory, localns).items() if name not in reg.kwargs
+    }
+    for key, value in reg.kwargs.items():
+        if isinstance(value, Dependency):
+            result[key] = value.cls
+    return result
+
+
+def _resolve_constants(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    result = {}
+    for key, value in kwargs.items():
+        if not isinstance(value, Dependency):
+            result[key] = value
+    return result
+
+
 class Container:  # pylint: disable=R0903
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
@@ -60,43 +112,23 @@ class Container:  # pylint: disable=R0903
         self._resolved: Dict[ObjType[Any], Any] = {}
 
     def resolve(self, cls: ObjType[Any]) -> Any:
+        cls = get_from_localns(cls, self._localns)
         if cls in self._resolved:
             return self._resolved[cls]
 
-        cls = self._get_from_localns(cls)
         try:
             current = self._registry[cls]
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve = {
-            name: value
-            for name, value in get_signature(current.factory, self._localns).items()
-            if name not in current.kwargs
-        }
-        args = self._resolve_kwargs(current.kwargs)
+        args = _resolve_constants(current.kwargs)
+        deps_to_resolve = get_deps(current, self._localns)
         for key, d in deps_to_resolve.items():
             args[key] = self.resolve(d)
         result = current.factory(**args)
         if current.is_singleton:
             self._resolved[current.cls] = result
         return result  # noqa: R504
-
-    def _get_from_localns(self, cls: ObjType[Any]) -> Any:
-        if isinstance(cls, type):
-            return self._localns.get(cls.__name__, cls)
-        if isinstance(cls, ForwardRef):
-            return self._localns.get(cls.__forward_arg__, cls)
-        return self._localns.get(cls, cls)
-
-    def _resolve_kwargs(self, kwargs: Dict[str, Any]) -> Dict[str, Any]:
-        result = {}
-        for key, value in kwargs.items():
-            if not isinstance(value, Dependency):
-                result[key] = value
-                continue
-            result[key] = self.resolve(value.cls)
-        return result
 
 
 class ContainerBuilder:
@@ -116,10 +148,7 @@ class ContainerBuilder:
             raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
         if cls in self._registry:
             raise ContainerError(f'Type {cls} is already registered')
-        try:
-            signature = get_signature(factory, self._localns)
-        except NameError as exc:
-            raise ContainerError(*exc.args) from exc
+        signature = get_arg_names(factory)
         for name in kwargs:
             if name not in signature:
                 raise ValueError(f'No argument {name} for factory for type {cls}')
@@ -127,7 +156,28 @@ class ContainerBuilder:
         self._update_localns(cls)
 
     def _check_resolvable(self) -> None:  # pylint: disable=R0201
-        ...
+        resolved: Set[ObjType[Any]] = set()
+        for cls in self._registry:
+            self._check_resolution(cls, resolved, set())
+
+    def _check_resolution(self, cls: ObjType[Any], resolved: Set[ObjType[Any]], resolving: Set[ObjType[Any]]) -> None:
+        cls = get_from_localns(cls, self._localns)
+        if cls in resolved:
+            return
+        if cls in resolving:
+            raise ContainerError(f'Cycle dependencies for type {cls}')
+        resolving.add(cls)
+
+        try:
+            current = self._registry[cls]
+        except KeyError as e:
+            raise ContainerError(f'No dependency of type {cls}') from e
+
+        deps_to_resolve = get_deps(current, localns=self._localns)
+        for value in deps_to_resolve.values():
+            self._check_resolution(value, resolved=resolved, resolving=resolving)
+        resolving.remove(cls)
+        resolved.add(cls)
 
     def _update_localns(self, cls: ObjType[Any]) -> None:
         if isinstance(cls, type):
