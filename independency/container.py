@@ -147,9 +147,14 @@ class Container:  # pylint: disable=R0903
             self._resolved[current.cls] = result
         return result  # noqa: R504
 
+    def create_test_container(self) -> 'TestContainer':
+        return TestContainer(registry=copy.deepcopy(self._registry), localns=copy.deepcopy(self._localns))
+
+
+class TestContainer(Container):
     def with_overridden(
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
-    ) -> 'Container':
+    ) -> 'TestContainer':
         if cls not in self._registry:
             raise ValueError("Can not override class without any registration")
         _validate_registration(cls, factory, kwargs)
@@ -158,9 +163,11 @@ class Container:  # pylint: disable=R0903
 
         _update_localns(cls, localns)
         registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
-        return Container(registry, localns)
+        return TestContainer(registry, localns)
 
-    def with_overridden_singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> 'Container':
+    def with_overridden_singleton(
+        self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any
+    ) -> 'TestContainer':
         return self.with_overridden(cls, factory, is_singleton=True, **kwargs)
 
 

@@ -354,7 +354,7 @@ def test_overridden():
     builder.singleton('y', lambda: 'abacaba')
     builder.singleton(A, A, y=Dep('y'))
     container = builder.build()
-    container_copy = container.with_overridden_singleton(int, lambda: 2)
+    container_copy = container.create_test_container().with_overridden_singleton(int, lambda: 2)
 
     inst = container.resolve(A)
     assert isinstance(inst, A)
@@ -373,4 +373,4 @@ def test_raise_when_override_missing_dependency():
     container = builder.build()
 
     with pytest.raises(ValueError):
-        container.with_overridden_singleton(int, lambda: 1)
+        container.create_test_container().with_overridden_singleton(int, lambda: 1)
