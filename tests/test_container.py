@@ -366,3 +366,11 @@ def test_overridden():
     assert isinstance(copy_inst, A)
     assert copy_inst.x == 2
     assert copy_inst.y == 'abacaba'
+
+
+def test_raise_when_override_missing_dependency():
+    builder = ContainerBuilder()
+    container = builder.build()
+
+    with pytest.raises(ValueError):
+        container.with_overridden_singleton(int, lambda: 1)
