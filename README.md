@@ -1,5 +1,5 @@
 # Independency
-Independency is a DI container library. Unlike many other Python DI containers Independency operates in local scope. It's inspired by [punq](https://github.com/bobthemighty/punq), so the APIs are very similar.
+Independency is a DI container library. Unlike many other Python DI containers Independency operates in the local scope. It's inspired by [punq](https://github.com/bobthemighty/punq), so the API is very similar.
 ## Examples
 Let's begin with a simple example.
 ```python3
