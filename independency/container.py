@@ -1,3 +1,4 @@
+import copy
 import dataclasses
 import inspect
 from typing import (
@@ -105,6 +106,22 @@ def _resolve_constants(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
+def _validate_registration(cls: ObjType[Any], factory: Callable[..., Any], kwargs: Dict[str, Any]) -> None:
+    if generic_params := getattr(cls, '__parameters__', None):
+        raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
+    signature = get_arg_names(factory)
+    for name in kwargs:
+        if name not in signature:
+            raise ValueError(f'No argument {name} for factory for type {cls}')
+
+
+def _update_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> None:
+    if isinstance(cls, type):
+        localns[cls.__name__] = cls
+    else:
+        localns[cls] = cls
+
+
 class Container:  # pylint: disable=R0903
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
@@ -130,6 +147,29 @@ class Container:  # pylint: disable=R0903
             self._resolved[current.cls] = result
         return result  # noqa: R504
 
+    def create_test_container(self) -> 'TestContainer':
+        return TestContainer(registry=copy.deepcopy(self._registry), localns=copy.deepcopy(self._localns))
+
+
+class TestContainer(Container):
+    def with_overridden(
+        self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
+    ) -> 'TestContainer':
+        if cls not in self._registry:
+            raise ValueError("Can not override class without any registration")
+        _validate_registration(cls, factory, kwargs)
+        registry = copy.deepcopy(self._registry)
+        localns = copy.deepcopy(self._localns)
+
+        _update_localns(cls, localns)
+        registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
+        return TestContainer(registry, localns)
+
+    def with_overridden_singleton(
+        self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any
+    ) -> 'TestContainer':
+        return self.with_overridden(cls, factory, is_singleton=True, **kwargs)
+
 
 class ContainerBuilder:
     def __init__(self) -> None:
@@ -144,16 +184,11 @@ class ContainerBuilder:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)
 
     def register(self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any) -> None:
-        if generic_params := getattr(cls, '__parameters__', None):
-            raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
         if cls in self._registry:
             raise ContainerError(f'Type {cls} is already registered')
-        signature = get_arg_names(factory)
-        for name in kwargs:
-            if name not in signature:
-                raise ValueError(f'No argument {name} for factory for type {cls}')
+        _validate_registration(cls, factory, kwargs)
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
-        self._update_localns(cls)
+        _update_localns(cls, self._localns)
 
     def _check_resolvable(self) -> None:  # pylint: disable=R0201
         resolved: Set[ObjType[Any]] = set()
@@ -178,9 +213,3 @@ class ContainerBuilder:
             self._check_resolution(value, resolved=resolved, resolving=resolving)
         resolving.remove(cls)
         resolved.add(cls)
-
-    def _update_localns(self, cls: ObjType[Any]) -> None:
-        if isinstance(cls, type):
-            self._localns[cls.__name__] = cls
-        else:
-            self._localns[cls] = cls
