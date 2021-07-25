@@ -123,6 +123,8 @@ def _update_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> None:
 
 
 class Container:  # pylint: disable=R0903
+    __slots__ = ["_registry", "_localns", "_resolved"]
+
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
         self._registry = registry
         self._localns = localns
@@ -152,6 +154,8 @@ class Container:  # pylint: disable=R0903
 
 
 class TestContainer(Container):
+    __slots__ = ["_registry", "_localns", "_resolved"]
+
     def with_overridden(
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
     ) -> 'TestContainer':
@@ -172,6 +176,8 @@ class TestContainer(Container):
 
 
 class ContainerBuilder:
+    __slots__ = ["_registry", "_localns"]
+
     def __init__(self) -> None:
         self._registry: Dict[ObjType[Any], Registration] = {}
         self._localns: Dict[str, Any] = {}
