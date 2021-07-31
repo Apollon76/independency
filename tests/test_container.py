@@ -5,6 +5,7 @@ import pytest
 
 from independency.container import ContainerBuilder, ContainerError
 from independency.container import Dependency as Dep
+from independency.container import get_generic_mapping, get_signature
 
 
 def test_container():
@@ -372,5 +373,64 @@ def test_raise_when_override_missing_dependency():
     builder = ContainerBuilder()
     container = builder.build()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ContainerError):
         container.create_test_container().with_overridden_singleton(int, lambda: 1)
+
+
+def test_invalid_argument():
+    builder = ContainerBuilder()
+
+    class A:
+        def __init__(self, x: int):
+            pass
+
+    with pytest.raises(ValueError):
+        builder.singleton(A, A, x=1, y=1)
+
+
+def test_raise_when_register_already_existing_dependency():
+    builder = ContainerBuilder()
+    builder.singleton(int, lambda: 1)
+    with pytest.raises(ContainerError):
+        builder.singleton(int, lambda: 2)
+
+
+def test_get_generic_mapping():
+    T1 = TypeVar('T1')  # noqa: N806
+    T2 = TypeVar('T2')  # noqa: N806
+    T3 = TypeVar('T3')  # noqa: N806
+
+    class A(Generic[T1, T2, T3]):
+        pass
+
+    class B:
+        pass
+
+    assert get_generic_mapping(A[int, float, str]) == {T1: int, T2: float, T3: str}
+    assert get_generic_mapping(B) == {}
+    assert get_generic_mapping(int) == {}
+
+
+def test_get_singature():
+    T1 = TypeVar('T1')  # noqa: N806
+
+    def f(x: int, y: T1) -> None:
+        pass
+
+    def g(x: str, y: float) -> None:
+        pass
+
+    class A:
+        def __init__(self, x: int, y: str):
+            pass
+
+    class B(Generic[T1]):
+        def __init__(self, x: T1, y: int):
+            pass
+
+    assert get_signature(f, {}) == {'x': int, 'y': T1}
+    assert get_signature(g, {}) == {'x': str, 'y': float}
+    assert get_signature(A, {}) == {'x': int, 'y': str}
+    assert get_signature(B, {}) == {'x': T1, 'y': int}
+    with pytest.raises(ContainerError):
+        get_signature(1, {})  # type: ignore

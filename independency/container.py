@@ -160,7 +160,7 @@ class TestContainer(Container):
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
     ) -> 'TestContainer':
         if cls not in self._registry:
-            raise ValueError("Can not override class without any registration")
+            raise ContainerError("Can not override class without any registration")
         _validate_registration(cls, factory, kwargs)
         registry = copy.deepcopy(self._registry)
         localns = copy.deepcopy(self._localns)
