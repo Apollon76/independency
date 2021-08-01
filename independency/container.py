@@ -150,7 +150,12 @@ class Container:  # pylint: disable=R0903
         return result  # noqa: R504
 
     def create_test_container(self) -> 'TestContainer':
-        return TestContainer(registry=copy.deepcopy(self._registry), localns=copy.deepcopy(self._localns))
+        registry = copy.deepcopy(self._registry)
+        localns = copy.deepcopy(self._localns)
+        test_container = TestContainer(registry=registry, localns=localns)
+        registry[Container] = Registration(Container, factory=lambda: test_container, is_singleton=True, kwargs={})
+        _update_localns(Container, localns)
+        return test_container
 
 
 class TestContainer(Container):
@@ -160,14 +165,16 @@ class TestContainer(Container):
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
     ) -> 'TestContainer':
         if cls not in self._registry:
-            raise ValueError("Can not override class without any registration")
+            raise ContainerError("Can not override class without any registration")
         _validate_registration(cls, factory, kwargs)
         registry = copy.deepcopy(self._registry)
         localns = copy.deepcopy(self._localns)
-
         _update_localns(cls, localns)
         registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
-        return TestContainer(registry, localns)
+        container = TestContainer(registry, localns)
+        registry[Container] = Registration(Container, factory=lambda: container, is_singleton=True, kwargs={})
+        _update_localns(Container, localns)
+        return container
 
     def with_overridden_singleton(
         self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any
@@ -183,8 +190,13 @@ class ContainerBuilder:
         self._localns: Dict[str, Any] = {}
 
     def build(self) -> Container:
-        self._check_resolvable()
-        return Container(self._registry.copy(), self._localns.copy())
+        registry = self._registry.copy()
+        localns = self._localns.copy()
+        container = Container(registry=registry, localns=localns)
+        registry[Container] = Registration(cls=Container, factory=lambda: container, kwargs={}, is_singleton=True)
+        _update_localns(Container, localns)
+        self._check_resolvable(registry, localns)
+        return container
 
     def singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)
@@ -196,13 +208,20 @@ class ContainerBuilder:
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
         _update_localns(cls, self._localns)
 
-    def _check_resolvable(self) -> None:  # pylint: disable=R0201
+    def _check_resolvable(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]) -> None:
         resolved: Set[ObjType[Any]] = set()
-        for cls in self._registry:
-            self._check_resolution(cls, resolved, set())
+        for cls in registry:
+            self._check_resolution(cls, resolved, set(), registry=registry, localns=localns)
 
-    def _check_resolution(self, cls: ObjType[Any], resolved: Set[ObjType[Any]], resolving: Set[ObjType[Any]]) -> None:
-        cls = get_from_localns(cls, self._localns)
+    def _check_resolution(
+        self,
+        cls: ObjType[Any],
+        resolved: Set[ObjType[Any]],
+        resolving: Set[ObjType[Any]],
+        registry: Dict[ObjType[Any], Registration],
+        localns: Dict[str, Any],
+    ) -> None:
+        cls = get_from_localns(cls, localns)
         if cls in resolved:
             return
         if cls in resolving:
@@ -210,12 +229,12 @@ class ContainerBuilder:
         resolving.add(cls)
 
         try:
-            current = self._registry[cls]
+            current = registry[cls]
         except KeyError as e:
             raise ContainerError(f'No dependency of type {cls}') from e
 
-        deps_to_resolve = get_deps(current, localns=self._localns)
+        deps_to_resolve = get_deps(current, localns=localns)
         for value in deps_to_resolve.values():
-            self._check_resolution(value, resolved=resolved, resolving=resolving)
+            self._check_resolution(value, resolved=resolved, resolving=resolving, registry=registry, localns=localns)
         resolving.remove(cls)
         resolved.add(cls)

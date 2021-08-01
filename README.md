@@ -2,6 +2,14 @@
 Independency is a DI container library. Unlike many other Python DI containers Independency operates in the local scope. It's inspired by [punq](https://github.com/bobthemighty/punq), so the API is very similar.
 
 Independency supports generics and other specific typings.
+
+
+## Installation
+
+```bash
+pip install independency
+```
+
 ## Examples
 Let's begin with a simple example.
 ```python3
