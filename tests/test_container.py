@@ -1,9 +1,9 @@
 import abc
-from typing import Generic, TypeVar
+from typing import Any, Dict, Generic, TypeVar
 
 import pytest
 
-from independency.container import ContainerBuilder, ContainerError
+from independency.container import Container, ContainerBuilder, ContainerError
 from independency.container import Dependency as Dep
 from independency.container import get_generic_mapping, get_signature
 
@@ -434,3 +434,44 @@ def test_get_singature():
     assert get_signature(B, {}) == {'x': T1, 'y': int}
     with pytest.raises(ContainerError):
         get_signature(1, {})  # type: ignore
+
+
+def test_get_container_as_dependency():
+    class A:
+        def __init__(self, x: Any):
+            self.x = x
+
+    class Settings:
+        def __init__(self, mapping: Dict[str, Any]):
+            self.mapping = mapping
+
+    def make_a(container: Container, settings: Settings) -> A:
+        return A(container.resolve(settings.mapping['key']))
+
+    builder = ContainerBuilder()
+    builder.singleton(int, lambda: 1)
+    builder.singleton(Settings, lambda: Settings(mapping={'key': int}))
+    builder.singleton(A, make_a)
+
+    container = builder.build()
+    a = container.resolve(A)
+    assert a.x == 1
+
+
+def test_container_as_dependency_in_test_container():
+    class A:
+        def __init__(self, x: int):
+            self.x = x
+
+    def make_a(container: Container) -> A:
+        return A(container.resolve(int))
+
+    builder = ContainerBuilder()
+    builder.singleton(int, lambda: 1)
+    builder.singleton(A, make_a)
+
+    container = builder.build()
+    test_container = container.create_test_container().with_overridden_singleton(int, lambda: 2)
+
+    assert container.resolve(A).x == 1
+    assert test_container.resolve(A).x == 2
