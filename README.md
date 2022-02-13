@@ -21,7 +21,7 @@ builder = independency.ContainerBuilder()
 container = builder.build()
 ```
 
-### Examples
+## Examples
 ```python3
 import requests
 
