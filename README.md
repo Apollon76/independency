@@ -17,7 +17,7 @@ Independency avoids global state, so you must explicitly create a container in t
 import independency
 
 builder = independency.ContainerBuilder()
-# registter application dependencies
+# register application dependencies
 container = builder.build()
 ```
 
