@@ -10,8 +10,18 @@ Independency supports generics and other specific typings.
 pip install independency
 ```
 
+## Quick start
+Independency avoids global state, so you must explicitly create a container in the entrypoint of your application:
+
+```
+import independency
+
+builder = independency.ContainerBuilder()
+# registter application dependencies
+container = builder.build()
+```
+
 ## Examples
-Let's begin with a simple example.
 ```python3
 import requests
 
