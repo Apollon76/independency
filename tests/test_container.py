@@ -475,3 +475,22 @@ def test_container_as_dependency_in_test_container():
 
     assert container.resolve(A).x == 1
     assert test_container.resolve(A).x == 2
+
+
+def test_show_parent_for_missing():
+    class A:
+        def __init__(self, x: int):
+            self.x = x
+
+    class B:
+        def __init__(self, value: A):
+            self.value = value
+
+    builder = ContainerBuilder()
+    builder.singleton(B, B)
+    with pytest.raises(
+        ContainerError,
+        match="No dependency of type <class 'tests.test_container.test_show_parent_for_missing.<locals>.A'> needed by "
+        "<class 'tests.test_container.test_show_parent_for_missing.<locals>.B'>",
+    ):
+        builder.build()
