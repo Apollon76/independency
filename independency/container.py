@@ -7,6 +7,7 @@ from typing import (
     Dict,
     ForwardRef,
     List,
+    Optional,
     Set,
     Type,
     TypeVar,
@@ -209,7 +210,7 @@ class ContainerBuilder:
     def _check_resolvable(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]) -> None:
         resolved: Set[ObjType[Any]] = set()
         for cls in registry:
-            self._check_resolution(cls, resolved, set(), registry=registry, localns=localns)
+            self._check_resolution(cls, resolved, set(), registry=registry, localns=localns, parent=None)
 
     def _check_resolution(
         self,
@@ -218,6 +219,7 @@ class ContainerBuilder:
         resolving: Set[ObjType[Any]],
         registry: Dict[ObjType[Any], Registration],
         localns: Dict[str, Any],
+        parent: Optional[ObjType[Any]],
     ) -> None:
         cls = get_from_localns(cls, localns)
         if cls in resolved:
@@ -229,10 +231,12 @@ class ContainerBuilder:
         try:
             current = registry[cls]
         except KeyError as e:
-            raise ContainerError(f'No dependency of type {cls}') from e
+            raise ContainerError(f'No dependency of type {cls} needed by {parent}') from e
 
         deps_to_resolve = get_deps(current, localns=localns)
         for value in deps_to_resolve.values():
-            self._check_resolution(value, resolved=resolved, resolving=resolving, registry=registry, localns=localns)
+            self._check_resolution(
+                value, resolved=resolved, resolving=resolving, registry=registry, localns=localns, parent=cls
+            )
         resolving.remove(cls)
         resolved.add(cls)
