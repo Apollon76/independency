@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "independency"
-version = "1.0"
-description = ""
+version = "1.1"
+description = "DI container library"
 authors = ["apollon <Apollon76@yandex.ru>", "ashibaev <ashibaev98@yandex.ru>"]
 
 [tool.poetry.dependencies]
