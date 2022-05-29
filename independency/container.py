@@ -159,8 +159,6 @@ class Container:  # pylint: disable=R0903
 
 
 class TestContainer(Container):
-    __slots__ = ["_registry", "_localns", "_resolved"]
-
     def with_overridden(
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
     ) -> 'TestContainer':
