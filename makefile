@@ -32,4 +32,4 @@ pretty:
 	$(VENV)/bin/black --skip-string-normalization $(ALL)
 
 tests:
-	$(VENV)/bin/pytest $(TESTS)
+	$(VENV)/bin/pytest --cov=independency $(TESTS)
