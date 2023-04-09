@@ -37,7 +37,7 @@ The second argument is a factory, so you can provide not only a class `__init__`
 def create_db(config: Config) -> Database:
     return Database(config.dsn)
 
-builder.singleton(Config)
+builder.singleton(Config, Config)
 builder.singleton(Database, create_db)
 ```
 
