@@ -100,3 +100,7 @@ def main():
 if __name__ == '__main__':
     main()
 ```
+
+## Contributing
+
+If you find a bug or have a feature request, please open an issue on GitHub. Pull requests are also welcome!
