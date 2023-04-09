@@ -41,7 +41,7 @@ builder.singleton(Config, Config)
 builder.singleton(Database, create_db)
 ```
 
-If you need to pass some specific dependency as an argument to a factory use `Dependency`:
+If you need to pass some specific dependency as an argument to a factory, use `Dependency`:
 
 ```python3
 from independency import Dependency as Dep
