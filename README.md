@@ -13,7 +13,7 @@ pip install independency
 ## Quick start
 Independency avoids global state, so you must explicitly create a container in the entrypoint of your application:
 
-```
+```python3
 import independency
 
 builder = independency.ContainerBuilder()
