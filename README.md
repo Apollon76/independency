@@ -19,6 +19,35 @@ import independency
 builder = independency.ContainerBuilder()
 # register application dependencies
 container = builder.build()
+obj: SomeRegisteredClass = container.resolve(SomeRegisteredClass)
+```
+
+### Registering Dependencies
+
+```python3
+builder.register(User, User)  # creates new object on each `resolve`
+builder.singleton(User, User)  # creates object only once
+builder.singleton(Storage[int], Storage[int])  # use generics
+builder.singleton('special_storage', Storage[int])  # or literals to register dependency
+```
+
+The second argument is a factory, so you can provide not only a class `__init__` function:
+
+```python3
+def create_db(config: Config) -> Database:
+    return Database(config.dsn)
+
+builder.singleton(Config)
+builder.singleton(Database, create_db)
+```
+
+If you need to pass some specific dependency as an argument to a factory use `Dependency`:
+
+```python3
+from independency import Dependency as Dep
+
+builder.singleton(SpecificConnection, SpecificConnection)
+builder.singleton(Storage, conn=Dep(SpecificConnection))
 ```
 
 ## Examples
