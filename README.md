@@ -10,7 +10,7 @@ Independency supports generics and other specific typings.
 pip install independency
 ```
 
-## Quick start
+## Usage
 Independency avoids global state, so you must explicitly create a container in the entrypoint of your application:
 
 ```python3
