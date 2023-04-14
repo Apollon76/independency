@@ -16,6 +16,7 @@ from typing import (
     get_args,
     get_origin,
     get_type_hints,
+    overload,
 )
 
 _T = TypeVar('_T')
@@ -130,6 +131,18 @@ class Container:  # pylint: disable=R0903
         self._registry = registry
         self._localns = localns
         self._resolved: Dict[ObjType[Any], Any] = {}
+
+    @overload
+    def resolve(self, cls: Type[_T]) -> _T:
+        pass
+
+    @overload
+    def resolve(self, cls: type) -> Any:
+        pass
+
+    @overload
+    def resolve(self, cls: str) -> Any:
+        pass
 
     def resolve(self, cls: ObjType[Any]) -> Any:
         cls = get_from_localns(cls, self._localns)
