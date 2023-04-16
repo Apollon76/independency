@@ -1,4 +1,5 @@
 import abc
+from functools import cache
 from typing import Any, Dict, Generic, TypeVar
 
 import pytest
@@ -494,3 +495,13 @@ def test_show_parent_for_missing():
         "<class 'tests.test_container.test_show_parent_for_missing.<locals>.B'>",
     ):
         builder.build()
+
+
+def test_unsupported_callable_raise_exception():
+    @cache
+    def fake_factory():
+        return ...
+
+    builder = ContainerBuilder()
+    with pytest.raises(ContainerError):
+        builder.singleton('a', fake_factory)

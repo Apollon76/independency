@@ -78,7 +78,10 @@ def get_arg_names(f: Callable[..., Any]) -> List[str]:
         return get_arg_names(f.__init__)  # type: ignore
     if not callable(f):
         raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
-    return inspect.getfullargspec(f).args
+    try:
+        return inspect.getfullargspec(f).args
+    except TypeError:
+        raise ContainerError(f'Unsupported callable {type(f)}')
 
 
 def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
