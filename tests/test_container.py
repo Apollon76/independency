@@ -1,6 +1,6 @@
 import abc
 from functools import cache
-from typing import Any, Dict, Generic, TypeVar
+from typing import Any, Dict, Generic, TypeVar, cast
 
 import pytest
 
@@ -232,6 +232,37 @@ def test_register_generic_type_without_params():
 
     with pytest.raises(ValueError):
         builder.singleton(B, B[int])
+
+
+def test_resolve_all_call_every_object_in_registry():
+    class Kek:
+        initialized = False
+
+        def __new__(cls, kek: 'Lol') -> 'Kek':
+            cls.initialized = True
+            return cast(Kek, cls)
+
+        def __init__(self, kek: 'Lol'):
+            self.kek = kek
+            self.initialized = True
+
+    class Lol:
+        initialized = False
+
+        def __new__(cls) -> 'Lol':
+            cls.initialized = True
+            return cast(Lol, cls)
+
+    builder = ContainerBuilder()
+
+    builder.singleton(Lol, Lol)
+    builder.singleton(Kek, Kek)
+
+    container = builder.build()
+    container.resolve_all()
+
+    assert Kek.initialized
+    assert Lol.initialized
 
 
 def test_can_resolve_objects_with_forward_references():

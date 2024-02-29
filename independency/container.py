@@ -80,8 +80,8 @@ def get_arg_names(f: Callable[..., Any]) -> List[str]:
         raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
     try:
         return inspect.getfullargspec(f).args
-    except TypeError:
-        raise ContainerError(f'Unsupported callable {type(f)}')
+    except TypeError as e:
+        raise ContainerError(f'Unsupported callable {type(f)}') from e
 
 
 def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
@@ -133,6 +133,10 @@ class Container:  # pylint: disable=R0903
         self._registry = registry
         self._localns = localns
         self._resolved: Dict[ObjType[Any], Any] = {}
+
+    def resolve_all(self) -> None:
+        for reg in self._registry:
+            self.resolve(reg)
 
     def resolve(self, cls: ObjType[Any]) -> Any:
         cls = get_from_localns(cls, self._localns)
