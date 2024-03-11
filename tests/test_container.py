@@ -79,6 +79,62 @@ def test_generics():  # noqa: C901
     assert d.value.f() == 'abacaba'
 
 
+def test_resolve_all_generics():  # noqa: C901
+    T = TypeVar('T')  # noqa: N806
+
+    class Interface(abc.ABC, Generic[T]):
+        def __new__(cls, *args, **kwargs):
+            cls._salt_value = cls.__name__ + '42'
+            return super().__new__(cls)
+
+        @abc.abstractmethod
+        def f(self) -> T:
+            pass
+
+    class A(Interface[int]):
+        def __init__(self, x: int):
+            self.x = x
+
+        def f(self) -> int:
+            return self.x
+
+    class B(Interface[T], Generic[T]):
+        def __init__(self, value: T):
+            self.value = value
+
+        def f(self) -> T:
+            return self.value
+
+    class C(Interface[Interface[T]]):
+        def __init__(self, value: Interface[T]):
+            self.value = value
+
+        def f(self) -> Interface[T]:
+            return self.value
+
+    builder = ContainerBuilder()
+    builder.singleton(Interface[int], A, x=1)
+    builder.singleton(Interface[str], B[str], value='abacaba')
+    builder.singleton(Interface[Interface[str]], C[str])
+    container = builder.build()
+    container.resolve_all()
+
+    assert A._salt_value == 'A42'
+    assert B._salt_value == 'B42'
+    assert C._salt_value == 'C42'
+
+    a = container.resolve(Interface[int])
+
+    assert isinstance(a, A)
+    assert a.x == 1
+    b = container.resolve(Interface[str])
+    assert isinstance(b, B)
+    assert b.value == 'abacaba'
+    c = container.resolve(Interface[Interface[str]])
+    assert isinstance(c, C)
+    assert c.value.f() == 'abacaba'
+
+
 def test_missing_dependencies_raise_exception():
     class A:
         pass
@@ -236,19 +292,14 @@ def test_register_generic_type_without_params():
 
 def test_resolve_all_call_every_object_in_registry():
     class Kek:
-        initialized = False
-
         def __new__(cls, kek: 'Lol') -> 'Kek':
             cls.initialized = True
             return cast(Kek, cls)
 
         def __init__(self, kek: 'Lol'):
             self.kek = kek
-            self.initialized = True
 
     class Lol:
-        initialized = False
-
         def __new__(cls) -> 'Lol':
             cls.initialized = True
             return cast(Lol, cls)
