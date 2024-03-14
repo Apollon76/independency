@@ -1,6 +1,6 @@
 import abc
 from functools import cache
-from typing import Any, Dict, Generic, TypeVar, cast
+from typing import Any, Dict, Final, Generic, TypeVar, cast
 
 import pytest
 
@@ -79,60 +79,40 @@ def test_generics():  # noqa: C901
     assert d.value.f() == 'abacaba'
 
 
-def test_resolve_all_generics():  # noqa: C901
+def test_get_all_registered_types():  # noqa: C901
     T = TypeVar('T')  # noqa: N806
+    StringDepsName: Final[str] = 'kek'
 
     class Interface(abc.ABC, Generic[T]):
-        def __new__(cls, *args, **kwargs):
-            cls._salt_value = cls.__name__ + '42'
-            return super().__new__(cls)
-
-        @abc.abstractmethod
-        def f(self) -> T:
-            pass
+        pass
 
     class A(Interface[int]):
-        def __init__(self, x: int):
-            self.x = x
-
-        def f(self) -> int:
-            return self.x
+        def __init__(self):
+            pass
 
     class B(Interface[T], Generic[T]):
-        def __init__(self, value: T):
-            self.value = value
-
-        def f(self) -> T:
-            return self.value
+        def __init__(self):
+            pass
 
     class C(Interface[Interface[T]]):
-        def __init__(self, value: Interface[T]):
-            self.value = value
-
-        def f(self) -> Interface[T]:
-            return self.value
+        def __init__(self):
+            pass
 
     builder = ContainerBuilder()
-    builder.singleton(Interface[int], A, x=1)
-    builder.singleton(Interface[str], B[str], value='abacaba')
+    builder.singleton(Interface[int], A)
+    builder.singleton(Interface[str], B[str])
     builder.singleton(Interface[Interface[str]], C[str])
+    builder.singleton(StringDepsName, C[str])
     container = builder.build()
-    container.resolve_all()
+    types = container.get_registered_deps()
 
-    assert A._salt_value == 'A42'
-    assert B._salt_value == 'B42'
-    assert C._salt_value == 'C42'
+    assert len(types) == 5
 
-    a = container.resolve(Interface[int])
-
-    assert isinstance(a, A)
-    assert a.x == 1
-    b = container.resolve(Interface[str])
-    assert isinstance(b, B)
-    assert b.value == 'abacaba'
-    c = container.resolve(Interface[Interface[str]])
-    assert isinstance(c, C)
-    assert c.value.f() == 'abacaba'
+    assert StringDepsName in types
+    assert Interface[int] in types
+    assert Interface[str] in types
+    assert Interface[Interface[str]] in types
+    assert Container in types
 
 
 def test_missing_dependencies_raise_exception():
@@ -288,32 +268,6 @@ def test_register_generic_type_without_params():
 
     with pytest.raises(ValueError):
         builder.singleton(B, B[int])
-
-
-def test_resolve_all_call_every_object_in_registry():
-    class Kek:
-        def __new__(cls, kek: 'Lol') -> 'Kek':
-            cls.initialized = True
-            return cast(Kek, cls)
-
-        def __init__(self, kek: 'Lol'):
-            self.kek = kek
-
-    class Lol:
-        def __new__(cls) -> 'Lol':
-            cls.initialized = True
-            return cast(Lol, cls)
-
-    builder = ContainerBuilder()
-
-    builder.singleton(Lol, Lol)
-    builder.singleton(Kek, Kek)
-
-    container = builder.build()
-    container.resolve_all()
-
-    assert Kek.initialized
-    assert Lol.initialized
 
 
 def test_can_resolve_objects_with_forward_references():

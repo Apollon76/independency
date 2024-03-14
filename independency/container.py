@@ -134,9 +134,8 @@ class Container:  # pylint: disable=R0903
         self._localns = localns
         self._resolved: Dict[ObjType[Any], Any] = {}
 
-    def resolve_all(self) -> None:
-        for reg in self._registry:
-            self.resolve(reg)
+    def get_registered_deps(self) -> set[ObjType[Any]]:
+        return set(self._registry.keys())
 
     def resolve(self, cls: ObjType[Any]) -> Any:
         cls = get_from_localns(cls, self._localns)
