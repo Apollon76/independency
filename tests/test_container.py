@@ -1,6 +1,6 @@
 import abc
-from functools import cache
-from typing import Any, Dict, Final, Generic, TypeVar, cast
+from functools import lru_cache
+from typing import Any, Dict, Final, Generic, TypeVar
 
 import pytest
 
@@ -534,7 +534,7 @@ def test_show_parent_for_missing():
 
 
 def test_unsupported_callable_raise_exception():
-    @cache
+    @lru_cache(maxsize=None)
     def fake_factory():
         return ...
 
