@@ -134,7 +134,7 @@ class Container:  # pylint: disable=R0903
         self._localns = localns
         self._resolved: Dict[ObjType[Any], Any] = {}
 
-    def get_registered_deps(self) -> set[ObjType[Any]]:
+    def get_registered_deps(self) -> Set[ObjType[Any]]:
         return set(self._registry.keys())
 
     def resolve(self, cls: ObjType[Any]) -> Any:
