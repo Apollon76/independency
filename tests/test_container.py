@@ -1,6 +1,6 @@
 import abc
 from functools import cache
-from typing import Any, Dict, Generic, TypeVar
+from typing import Any, Dict, Final, Generic, TypeVar, cast
 
 import pytest
 
@@ -77,6 +77,42 @@ def test_generics():  # noqa: C901
     d = container.resolve(D[str])
     assert isinstance(d, D)
     assert d.value.f() == 'abacaba'
+
+
+def test_get_all_registered_types():  # noqa: C901
+    T = TypeVar('T')  # noqa: N806
+    StringDepsName: Final[str] = 'kek'
+
+    class Interface(abc.ABC, Generic[T]):
+        pass
+
+    class A(Interface[int]):
+        def __init__(self):
+            pass
+
+    class B(Interface[T], Generic[T]):
+        def __init__(self):
+            pass
+
+    class C(Interface[Interface[T]]):
+        def __init__(self):
+            pass
+
+    builder = ContainerBuilder()
+    builder.singleton(Interface[int], A)
+    builder.singleton(Interface[str], B[str])
+    builder.singleton(Interface[Interface[str]], C[str])
+    builder.singleton(StringDepsName, C[str])
+    container = builder.build()
+    types = container.get_registered_deps()
+
+    assert len(types) == 5
+
+    assert StringDepsName in types
+    assert Interface[int] in types
+    assert Interface[str] in types
+    assert Interface[Interface[str]] in types
+    assert Container in types
 
 
 def test_missing_dependencies_raise_exception():
