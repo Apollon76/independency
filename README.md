@@ -1,6 +1,7 @@
 <p align="center">
 <img src="img/logo.jpg" alt="Independency" style="width: 70%; height: auto;"/>
 </p>
+
 Unlike many other Python DI containers Independency operates in the local scope. It's inspired by [punq](https://github.com/bobthemighty/punq), so the API is very similar.
 
 Independency supports generics and other specific typings.
