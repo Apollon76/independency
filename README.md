@@ -1,6 +1,6 @@
 <p align="center">
-  <a href="https://github.com/ORGANIZATION/REPOSITORY/actions/workflows/linters-and-tests.yml">
-    <img src="https://github.com/ORGANIZATION/REPOSITORY/actions/workflows/linters-and-tests.yml/badge.svg?branch=main" alt="GitHub Actions Workflow Status"/>
+  <a href="https://github.com/Apollon76/independency/actions/workflows/linters-and-tests.yml">
+    <img src="https://github.com/Apollon76/independency/actions/workflows/linters-and-tests.yml/badge.svg?branch=main" alt="GitHub Actions Workflow Status"/>
   </a>
   <a href="https://pypi.org/project/independency/">
     <img src="https://img.shields.io/pypi/v/independency.svg" alt="PyPI Version"/>
