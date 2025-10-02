@@ -1,19 +1,7 @@
 import copy
 import dataclasses
 import inspect
-from typing import (
-    Any,
-    Callable,
-    ForwardRef,
-    Optional,
-    Type,
-    TypeVar,
-    Union,
-    cast,
-    get_args,
-    get_origin,
-    get_type_hints,
-)
+from typing import Any, Callable, ForwardRef, Optional, Type, TypeVar, Union, cast, get_args, get_origin, get_type_hints
 
 _T = TypeVar('_T')
 ObjType = Union[str, Type[_T]]
