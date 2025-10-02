@@ -87,8 +87,8 @@ def get_arg_names(f: Callable[..., Any]) -> List[str]:
 def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
     if isinstance(cls, type):
         return localns.get(cls.__name__, cls)
-    if isinstance(cls, ForwardRef):
-        return localns.get(cls.__forward_arg__, cls)
+    if isinstance(cls, ForwardRef):  # type: ignore[unreachable]
+        return localns.get(cls.__forward_arg__, cls)  # type: ignore[unreachable]
     return localns.get(cls, cls)
 
 
