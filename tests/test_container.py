@@ -534,10 +534,16 @@ def test_show_parent_for_missing():
 
 
 def test_unsupported_callable_raise_exception():
-    @lru_cache(maxsize=None)
-    def fake_factory():
-        return ...
+    # Python 3.10+ inspect.signature() can handle lru_cache decorated functions
+    # Test with an actual unsupported callable (a non-introspectable object)
+    class NonIntrospectable:
+        def __call__(self):
+            return ...
 
+        def __signature__(self):
+            raise ValueError("Cannot inspect")
+
+    fake_factory = NonIntrospectable()
     builder = ContainerBuilder()
     with pytest.raises(ContainerError):
         builder.singleton('a', fake_factory)

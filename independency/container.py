@@ -4,11 +4,8 @@ import inspect
 from typing import (
     Any,
     Callable,
-    Dict,
     ForwardRef,
-    List,
     Optional,
-    Set,
     Type,
     TypeVar,
     Union,
@@ -31,7 +28,7 @@ class Registration:
     cls: ObjType[Any]
     factory: Callable[..., Any]
     is_singleton: bool
-    kwargs: Dict[str, Any]
+    kwargs: dict[str, Any]
 
 
 @dataclasses.dataclass
@@ -39,14 +36,14 @@ class Dependency:
     cls: ObjType[Any]
 
 
-def get_generic_mapping(cls: Any) -> Dict[TypeVar, Type[_T]]:
+def get_generic_mapping(cls: Any) -> dict[TypeVar, Type[_T]]:
     origin = get_origin(cls)
     if origin is None:
         return {}
     return dict(zip(origin.__parameters__, get_args(cls)))
 
 
-def resolve(t: Type[_T], mapping: Dict[Any, Type[Any]]) -> Type[_T]:
+def resolve(t: Type[_T], mapping: dict[Any, Type[Any]]) -> Type[_T]:
     if t in mapping:
         return cast(Type[_T], mapping[t])
     if get_origin(t) is None:
@@ -55,7 +52,7 @@ def resolve(t: Type[_T], mapping: Dict[Any, Type[Any]]) -> Type[_T]:
     return get_origin(t)[tuple(resolved_args)]  # type: ignore
 
 
-def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, Type[Any]]:
+def get_signature(f: Callable[..., Any], localns: dict[str, Any]) -> dict[str, Type[Any]]:
     if get_origin(f) is not None:
         cls = get_origin(f)
         signature = get_signature(cls.__init__, localns=localns)  # type: ignore
@@ -70,7 +67,7 @@ def get_signature(f: Callable[..., Any], localns: Dict[str, Any]) -> Dict[str, T
     return {name: annotation for name, annotation in get_type_hints(f, localns=localns).items() if name != 'return'}
 
 
-def get_arg_names(f: Callable[..., Any]) -> List[str]:
+def get_arg_names(f: Callable[..., Any]) -> list[str]:
     if get_origin(f) is not None:
         cls = get_origin(f)
         return get_arg_names(cls.__init__)  # type: ignore
@@ -79,21 +76,24 @@ def get_arg_names(f: Callable[..., Any]) -> List[str]:
     if not callable(f):
         raise ContainerError(f'Can not use non-callable instance of  type {type(f)} as a factory')
     try:
-        return inspect.getfullargspec(f).args
-    except TypeError as e:
+        sig = inspect.signature(f)
+        return list(sig.parameters.keys())
+    except (TypeError, ValueError) as e:
         raise ContainerError(f'Unsupported callable {type(f)}') from e
 
 
-def get_from_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> Any:
+def get_from_localns(cls: ObjType[Any], localns: dict[str, Any]) -> Any:
     if isinstance(cls, type):
         return localns.get(cls.__name__, cls)
     if isinstance(cls, ForwardRef):  # type: ignore[unreachable]
-        return localns.get(cls.__forward_arg__, cls)  # type: ignore[unreachable]
+        # Python 3.10+: Use __forward_arg__ to get the string representation
+        forward_arg = getattr(cls, '__forward_arg__', None) or getattr(cls, 'arg', None)  # type: ignore[unreachable]
+        return localns.get(forward_arg, cls) if forward_arg else cls  # type: ignore[unreachable]
     return localns.get(cls, cls)
 
 
-def get_deps(reg: Registration, localns: Dict[str, Any]) -> Dict[str, ObjType[Any]]:
-    result: Dict[str, ObjType[Any]] = {
+def get_deps(reg: Registration, localns: dict[str, Any]) -> dict[str, ObjType[Any]]:
+    result: dict[str, ObjType[Any]] = {
         name: value for name, value in get_signature(reg.factory, localns).items() if name not in reg.kwargs
     }
     for key, value in reg.kwargs.items():
@@ -102,7 +102,7 @@ def get_deps(reg: Registration, localns: Dict[str, Any]) -> Dict[str, ObjType[An
     return result
 
 
-def _resolve_constants(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+def _resolve_constants(kwargs: dict[str, Any]) -> dict[str, Any]:
     result = {}
     for key, value in kwargs.items():
         if not isinstance(value, Dependency):
@@ -110,7 +110,7 @@ def _resolve_constants(kwargs: Dict[str, Any]) -> Dict[str, Any]:
     return result
 
 
-def _validate_registration(cls: ObjType[Any], factory: Callable[..., Any], kwargs: Dict[str, Any]) -> None:
+def _validate_registration(cls: ObjType[Any], factory: Callable[..., Any], kwargs: dict[str, Any]) -> None:
     if generic_params := getattr(cls, '__parameters__', None):
         raise ValueError(f'Specify generic parameters for {cls=}: {generic_params}')
     signature = get_arg_names(factory)
@@ -119,7 +119,7 @@ def _validate_registration(cls: ObjType[Any], factory: Callable[..., Any], kwarg
             raise ValueError(f'No argument {name} for factory for type {cls}')
 
 
-def _update_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> None:
+def _update_localns(cls: ObjType[Any], localns: dict[str, Any]) -> None:
     if isinstance(cls, type):
         localns[cls.__name__] = cls
     else:
@@ -129,12 +129,12 @@ def _update_localns(cls: ObjType[Any], localns: Dict[str, Any]) -> None:
 class Container:  # pylint: disable=R0903
     __slots__ = ["_registry", "_localns", "_resolved"]
 
-    def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
+    def __init__(self, registry: dict[ObjType[Any], Registration], localns: dict[str, Any]):
         self._registry = registry
         self._localns = localns
-        self._resolved: Dict[ObjType[Any], Any] = {}
+        self._resolved: dict[ObjType[Any], Any] = {}
 
-    def get_registered_deps(self) -> Set[ObjType[Any]]:
+    def get_registered_deps(self) -> set[ObjType[Any]]:
         return set(self._registry.keys())
 
     def resolve(self, cls: ObjType[Any]) -> Any:
@@ -191,8 +191,8 @@ class ContainerBuilder:
     __slots__ = ["_registry", "_localns"]
 
     def __init__(self) -> None:
-        self._registry: Dict[ObjType[Any], Registration] = {}
-        self._localns: Dict[str, Any] = {}
+        self._registry: dict[ObjType[Any], Registration] = {}
+        self._localns: dict[str, Any] = {}
 
     def build(self) -> Container:
         registry = self._registry.copy()
@@ -213,18 +213,18 @@ class ContainerBuilder:
         self._registry[cls] = Registration(cls=cls, factory=factory, kwargs=kwargs, is_singleton=is_singleton)
         _update_localns(cls, self._localns)
 
-    def _check_resolvable(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]) -> None:
-        resolved: Set[ObjType[Any]] = set()
+    def _check_resolvable(self, registry: dict[ObjType[Any], Registration], localns: dict[str, Any]) -> None:
+        resolved: set[ObjType[Any]] = set()
         for cls in registry:
             self._check_resolution(cls, resolved, set(), registry=registry, localns=localns, parent=None)
 
     def _check_resolution(
         self,
         cls: ObjType[Any],
-        resolved: Set[ObjType[Any]],
-        resolving: Set[ObjType[Any]],
-        registry: Dict[ObjType[Any], Registration],
-        localns: Dict[str, Any],
+        resolved: set[ObjType[Any]],
+        resolving: set[ObjType[Any]],
+        registry: dict[ObjType[Any], Registration],
+        localns: dict[str, Any],
         parent: Optional[ObjType[Any]],
     ) -> None:
         cls = get_from_localns(cls, localns)
