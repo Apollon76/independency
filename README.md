@@ -223,14 +223,6 @@ make lint   # Run all linters (flake8, mypy, pylint, black)
 make pretty # Format code with black
 ```
 
-### Code Quality
-
-This project maintains:
-- 100% test coverage
-- Type safety with mypy
-- Code quality with pylint and flake8
-- Consistent formatting with black (120 line length)
-
 ## Requirements
 
 - Python 3.10 or higher
