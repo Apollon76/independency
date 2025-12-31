@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Callable, Dict, Set
 
 from .common import (
@@ -12,7 +13,7 @@ from .common import (
 )
 
 
-class Container:  # pylint: disable=R0903
+class AsyncContainer:  # pylint: disable=R0903
     __slots__ = ["_registry", "_localns", "_resolved"]
 
     def __init__(self, registry: Dict[ObjType[Any], Registration], localns: Dict[str, Any]):
@@ -23,43 +24,49 @@ class Container:  # pylint: disable=R0903
     def get_registered_deps(self) -> Set[ObjType[Any]]:
         return set(self._registry.keys())
 
-    def resolve(self, cls: ObjType[Any]) -> Any:
+    async def resolve(self, cls: ObjType[Any]) -> Any:
         cls, current, args, deps_to_resolve = prepare_resolve(cls, self._registry, self._resolved, self._localns)
         if current is None:
             return self._resolved[cls]
 
         for key, d in deps_to_resolve.items():
-            args[key] = self.resolve(d)
-        result = current.factory(**args)
+            args[key] = await self.resolve(d)
+
+        # Handle both sync and async factories
+        if asyncio.iscoroutinefunction(current.factory):
+            result = await current.factory(**args)
+        else:
+            result = current.factory(**args)
+
         return finalize_resolve(current, result, self._resolved)
 
-    def create_test_container(self) -> 'TestContainer':
-        return create_test_container_copy(self._registry, self._localns, Container, TestContainer)
+    def create_test_container(self) -> 'AsyncTestContainer':
+        return create_test_container_copy(self._registry, self._localns, AsyncContainer, AsyncTestContainer)
 
 
-class TestContainer(Container):
+class AsyncTestContainer(AsyncContainer):
     def with_overridden(
         self, cls: ObjType[Any], factory: Callable[..., Any], is_singleton: bool, **kwargs: Any
-    ) -> 'TestContainer':
+    ) -> 'AsyncTestContainer':
         return create_overridden_container(
-            self._registry, self._localns, cls, factory, is_singleton, Container, TestContainer, **kwargs
+            self._registry, self._localns, cls, factory, is_singleton, AsyncContainer, AsyncTestContainer, **kwargs
         )
 
     def with_overridden_singleton(
         self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any
-    ) -> 'TestContainer':
+    ) -> 'AsyncTestContainer':
         return self.with_overridden(cls, factory, is_singleton=True, **kwargs)
 
 
-class ContainerBuilder:
+class AsyncContainerBuilder:
     __slots__ = ["_registry", "_localns"]
 
     def __init__(self) -> None:
         self._registry: Dict[ObjType[Any], Registration] = {}
         self._localns: Dict[str, Any] = {}
 
-    def build(self) -> Container:
-        return build_container(self._registry, self._localns, Container, Container)
+    def build(self) -> AsyncContainer:
+        return build_container(self._registry, self._localns, AsyncContainer, AsyncContainer)
 
     def singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)

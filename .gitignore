@@ -71,3 +71,4 @@ allure-results/
 # Documentation
 _build/
 reference/
+.venv*
