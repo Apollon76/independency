@@ -4,9 +4,9 @@ from typing import Any, Dict, Final, Generic, TypeVar
 
 import pytest
 
-from independency.container import Container, ContainerBuilder, ContainerError
-from independency.container import Dependency as Dep
-from independency.container import get_generic_mapping, get_signature
+from independency._common import ContainerError, Dependency as Dep
+from independency._common import get_generic_mapping, get_signature
+from independency.container import Container, ContainerBuilder
 
 
 def test_container():

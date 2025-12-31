@@ -4,9 +4,9 @@ from typing import Any, Dict, Final, Generic, TypeVar
 
 import pytest
 
-from independency.async_container import AsyncContainer, AsyncContainerBuilder, ContainerError
-from independency.async_container import Dependency as Dep
-from independency.async_container import get_generic_mapping, get_signature
+from independency._common import ContainerError, Dependency as Dep
+from independency._common import get_generic_mapping, get_signature
+from independency.async_container import AsyncContainer, AsyncContainerBuilder
 
 
 @pytest.mark.asyncio
