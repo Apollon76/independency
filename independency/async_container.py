@@ -1,16 +1,15 @@
 import asyncio
-import copy
 from typing import Any, Callable, Dict, Set
 
 from ._common import (
     ObjType,
     Registration,
+    build_container,
     builder_register,
-    check_resolvable,
     create_overridden_container,
+    create_test_container_copy,
     finalize_resolve,
     prepare_resolve,
-    update_localns,
 )
 
 
@@ -42,14 +41,7 @@ class AsyncContainer:  # pylint: disable=R0903
         return finalize_resolve(current, result, self._resolved)
 
     def create_test_container(self) -> 'AsyncTestContainer':
-        registry = copy.deepcopy(self._registry)
-        localns = copy.deepcopy(self._localns)
-        test_container = AsyncTestContainer(registry=registry, localns=localns)
-        registry[AsyncContainer] = Registration(
-            AsyncContainer, factory=lambda: test_container, is_singleton=True, kwargs={}
-        )
-        update_localns(AsyncContainer, localns)
-        return test_container
+        return create_test_container_copy(self._registry, self._localns, AsyncContainer, AsyncTestContainer)
 
 
 class AsyncTestContainer(AsyncContainer):
@@ -74,15 +66,7 @@ class AsyncContainerBuilder:
         self._localns: Dict[str, Any] = {}
 
     def build(self) -> AsyncContainer:
-        registry = self._registry.copy()
-        localns = self._localns.copy()
-        container = AsyncContainer(registry=registry, localns=localns)
-        registry[AsyncContainer] = Registration(
-            cls=AsyncContainer, factory=lambda: container, kwargs={}, is_singleton=True
-        )
-        update_localns(AsyncContainer, localns)
-        check_resolvable(registry, localns)
-        return container
+        return build_container(self._registry, self._localns, AsyncContainer, AsyncContainer)
 
     def singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)

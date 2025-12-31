@@ -4,7 +4,7 @@ from typing import Any, Dict, Final, Generic, TypeVar
 
 import pytest
 
-from independency._common import ContainerError, Dependency as Dep
+from independency import ContainerError, Dependency as Dep
 from independency._common import get_generic_mapping, get_signature
 from independency.container import Container, ContainerBuilder
 

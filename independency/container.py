@@ -1,15 +1,14 @@
-import copy
 from typing import Any, Callable, Dict, Set
 
 from ._common import (
     ObjType,
     Registration,
+    build_container,
     builder_register,
-    check_resolvable,
     create_overridden_container,
+    create_test_container_copy,
     finalize_resolve,
     prepare_resolve,
-    update_localns,
 )
 
 
@@ -35,12 +34,7 @@ class Container:  # pylint: disable=R0903
         return finalize_resolve(current, result, self._resolved)
 
     def create_test_container(self) -> 'TestContainer':
-        registry = copy.deepcopy(self._registry)
-        localns = copy.deepcopy(self._localns)
-        test_container = TestContainer(registry=registry, localns=localns)
-        registry[Container] = Registration(Container, factory=lambda: test_container, is_singleton=True, kwargs={})
-        update_localns(Container, localns)
-        return test_container
+        return create_test_container_copy(self._registry, self._localns, Container, TestContainer)
 
 
 class TestContainer(Container):
@@ -65,13 +59,7 @@ class ContainerBuilder:
         self._localns: Dict[str, Any] = {}
 
     def build(self) -> Container:
-        registry = self._registry.copy()
-        localns = self._localns.copy()
-        container = Container(registry=registry, localns=localns)
-        registry[Container] = Registration(cls=Container, factory=lambda: container, kwargs={}, is_singleton=True)
-        update_localns(Container, localns)
-        check_resolvable(registry, localns)
-        return container
+        return build_container(self._registry, self._localns, Container, Container)
 
     def singleton(self, cls: ObjType[Any], factory: Callable[..., Any], **kwargs: Any) -> None:
         self.register(cls=cls, factory=factory, is_singleton=True, **kwargs)

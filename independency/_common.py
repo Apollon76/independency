@@ -206,6 +206,41 @@ def finalize_resolve(current: Registration, result: Any, resolved: Dict[ObjType[
     return result
 
 
+def build_container(
+    registry: Dict[ObjType[Any], Registration],
+    localns: Dict[str, Any],
+    container_class: Type[Any],
+    container_factory: Callable[[Dict[ObjType[Any], Registration], Dict[str, Any]], _ContainerT],
+) -> _ContainerT:
+    """Build a container with validation."""
+    registry_copy = registry.copy()
+    localns_copy = localns.copy()
+    container = container_factory(registry_copy, localns_copy)
+    registry_copy[container_class] = Registration(
+        cls=container_class, factory=lambda: container, kwargs={}, is_singleton=True
+    )
+    update_localns(container_class, localns_copy)
+    check_resolvable(registry_copy, localns_copy)
+    return container
+
+
+def create_test_container_copy(
+    registry: Dict[ObjType[Any], Registration],
+    localns: Dict[str, Any],
+    container_class: Type[Any],
+    test_container_factory: Callable[[Dict[ObjType[Any], Registration], Dict[str, Any]], _ContainerT],
+) -> _ContainerT:
+    """Create a test container as a deep copy."""
+    registry_copy = copy.deepcopy(registry)
+    localns_copy = copy.deepcopy(localns)
+    test_container = test_container_factory(registry_copy, localns_copy)
+    registry_copy[container_class] = Registration(
+        container_class, factory=lambda: test_container, is_singleton=True, kwargs={}
+    )
+    update_localns(container_class, localns_copy)
+    return test_container
+
+
 def create_overridden_container(
     original_registry: Dict[ObjType[Any], Registration],
     original_localns: Dict[str, Any],
