@@ -22,6 +22,10 @@ pytest-asyncio = "^0.24.0"
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
 [tool.black]
 target-version = ['py310', 'py311', 'py312', 'py313']
 line-length = 120
