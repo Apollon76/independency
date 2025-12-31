@@ -1,6 +1,6 @@
 from typing import Any, Callable, Dict, Set
 
-from ._common import (
+from .common import (
     ObjType,
     Registration,
     build_container,
