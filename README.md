@@ -1,3 +1,5 @@
+
+
 <p align="center">
 <img src="img/logo.svg" alt="Independency" style="width: 70%; height: auto;"/>
 </p>
@@ -189,7 +191,7 @@ if __name__ == '__main__':
 
 ### ContainerBuilder
 
-- `register(key, factory, **kwargs)` - Register a transient dependency (new instance per resolve)
+- `register(key, factory, is_singleton, **kwargs)` - Register a dependency (requires explicit `is_singleton` flag)
 - `singleton(key, factory, **kwargs)` - Register a singleton dependency (single instance)
 - `build()` - Build and validate the container
 
